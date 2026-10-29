@@ -13,7 +13,6 @@
   .shell { min-height: 100vh; background: radial-gradient(ellipse at 80% 0%, #0f2b4a 0%, #080e16 48%, #05080e 100%); }
   .glass { background: #0f1925; border: 1px solid #24364a; }
   .banner { background: #0a2540; }
-  .marca { background: linear-gradient(135deg, #1e90ff, #00a8e8); }
   .eyebrow { font-family: "Space Mono", monospace; letter-spacing: .14em; }
   .paso { background: #0d1d2e; border: 1px solid #24435f; border-radius: 12px; padding: 10px 12px; }
   .punto { display: inline-block; width: 10px; height: 10px; border-radius: 999px; margin-right: 7px; }

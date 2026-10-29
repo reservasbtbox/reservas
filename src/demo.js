@@ -56,11 +56,20 @@ export async function get(params) {
       acceso: { pin: '482913', magicLink: '' },
     };
   }
+  if (params.action === 'cancelacion') {
+    const r = JSON.parse(sessionStorage.getItem(CLAVE) || 'null');
+    if (!r || r.id !== params.reserva) return { ok: false, error: 'Enlace de cancelación no válido.' };
+    return { ok: true, reserva: r, cancelada: false, puedeCancelar: true, motivo: null, limite: 'el día anterior', reembolso: r.precio };
+  }
   return { ok: false, error: 'Acción no válida.' };
 }
 
 export async function post(body) {
   await espera(700);
+  if (body.action === 'cancelar') {
+    const r = JSON.parse(sessionStorage.getItem(CLAVE) || 'null');
+    return { ok: true, reembolsado: true, importe: r?.precio || 0 };
+  }
   const id = `DEMO-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
   const p = CONFIG.precios;
   const precio = body.horas * (p.profesionalHora * body.profesionales + p.clienteHora * body.clientes);

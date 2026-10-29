@@ -5,7 +5,7 @@ import { duracion, esUrlSegura, euros, fechaLarga, plural } from '../utils.js';
 const INTENTOS = 10;
 const ESPERA_MS = 3000;
 
-function Resumen({ reserva }) {
+export function Resumen({ reserva }) {
   if (!reserva) return null;
   const filas = [
     ['Código de reserva', reserva.id],

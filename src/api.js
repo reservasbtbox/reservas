@@ -46,4 +46,6 @@ export const api = {
   disponibilidad: (desde, dias = 7) => get({ action: 'disponibilidad', desde, dias }),
   estado: (reserva, sessionId) => get({ action: 'estado', reserva, session_id: sessionId || '' }),
   reservar: (datos) => post({ action: 'reservar', ...datos }),
+  cancelacion: (reserva, token) => get({ action: 'cancelacion', reserva, token }),
+  cancelar: (reserva, token) => post({ action: 'cancelar', reserva, token }),
 };

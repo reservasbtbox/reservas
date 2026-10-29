@@ -1,16 +1,26 @@
 import { useState } from 'react';
+import logo from './assets/logo.png';
+import Cancelar from './components/Cancelar.jsx';
 import Confirmacion from './components/Confirmacion.jsx';
 import Reserva from './components/Reserva.jsx';
 import { MODO_DEMO, PROXIMAMENTE } from './config.js';
 
 // Stripe devuelve aquí con ?pago=ok&reserva=…&session_id=…  o  ?pago=cancelado&reserva=…
-// La reserva y el session_id permiten ver el PIN: se quitan de la URL al momento para que no queden
-// en el historial ni en enlaces compartidos, y se guardan solo en esta pestaña por si el cliente recarga.
+// y el email de confirmación enlaza aquí con ?cancelar=…&token=…
+// La reserva y el session_id (o el token) permiten ver el PIN o cancelar: se quitan de la URL al momento para que
+// no queden en el historial ni en enlaces compartidos, y se guardan solo en esta pestaña por si el cliente recarga.
 const CLAVE_RETORNO = 'btbox-retorno';
 
 function leerRetorno() {
   const params = new URLSearchParams(window.location.search);
   const pago = params.get('pago');
+  const cancelar = params.get('cancelar');
+  if (cancelar) {
+    window.history.replaceState(null, '', window.location.pathname);
+    const retorno = { cancelar, token: params.get('token') };
+    guardarRetorno(retorno);
+    return retorno;
+  }
   if (pago) {
     window.history.replaceState(null, '', window.location.pathname);
     const retorno = { pago, reserva: params.get('reserva'), sessionId: params.get('session_id') };
@@ -36,7 +46,10 @@ function guardarRetorno(retorno) {
 const retorno = leerRetorno();
 
 export default function App() {
-  const [vista, setVista] = useState(retorno.pago === 'ok' && retorno.reserva ? 'confirmacion' : 'reserva');
+  const [vista, setVista] = useState(() => {
+    if (retorno.cancelar) return 'cancelar';
+    return retorno.pago === 'ok' && retorno.reserva ? 'confirmacion' : 'reserva';
+  });
   const pagoCancelado = retorno.pago === 'cancelado';
 
   function nuevaReserva() {
@@ -49,7 +62,7 @@ export default function App() {
     <div className="shell">
       <header className="border-b border-[#1d3047]">
         <div className="max-w-6xl mx-auto px-4 sm:px-8 py-4 flex items-center gap-3">
-          <span aria-hidden="true" className="w-9 h-9 rounded-xl marca flex items-center justify-center font-bold text-xl text-[#03101d]">B</span>
+          <img src={logo} alt="" className="w-10 h-10 rounded-xl bg-white object-contain p-1" />
           <div>
             <p className="font-bold tracking-wide leading-tight">BTBOX TRAINING CENTER</p>
             <p className="eyebrow text-[11px] text-[#5fc4f0]">RESERVAS 24/7</p>
@@ -69,6 +82,8 @@ export default function App() {
             <h1 className="font-bold text-2xl sm:text-3xl">Reservas disponibles próximamente</h1>
             <p className="text-[#c7d6e5] mt-3">Estamos preparando las reservas online. Vuelve en unos días.</p>
           </section>
+        ) : vista === 'cancelar' ? (
+          <Cancelar reservaId={retorno.cancelar} token={retorno.token} onNueva={nuevaReserva} />
         ) : vista === 'confirmacion' ? (
           <Confirmacion reservaId={retorno.reserva} sessionId={retorno.sessionId} onNueva={nuevaReserva} />
         ) : (
