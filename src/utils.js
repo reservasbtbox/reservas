@@ -36,11 +36,13 @@ export const fechaCorta = (d) => corto.format(d);
 const eur = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
 export const euros = (n) => (typeof n === 'number' ? eur.format(n) : String(n ?? ''));
 
+// Tarifa de la tabla: la primera fila que admite esas personas.
 // El servidor recalcula el precio igualmente; esto es solo para mostrarlo al momento.
-export function calcularPrecio(config, horas, profesionales, clientes) {
-  const p = config?.precios;
-  if (!p) return null;
-  return horas * (p.profesionalHora * profesionales + p.clienteHora * clientes);
+export const tarifaPara = (config, personas) => config?.tarifas?.find((t) => personas <= t.hasta) || null;
+
+export function calcularPrecio(config, minutos, personas) {
+  const precio = tarifaPara(config, personas)?.precios?.[minutos];
+  return typeof precio === 'number' ? precio : null;
 }
 
 // El Apps Script devuelve el horario como { 1: [['06:00', '08:00'], ['14:00', '17:00']], … } (1 = lunes).

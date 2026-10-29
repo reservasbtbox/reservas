@@ -1,6 +1,6 @@
 // Datos inventados para ver la página funcionando antes de conectar el Apps Script.
 // No se usa en cuanto API_URL tiene la URL real.
-import { addDays, aMinutos, fromISO, iso, sumarMin } from './utils.js';
+import { addDays, aMinutos, calcularPrecio, fromISO, iso, sumarMin } from './utils.js';
 
 const ENTRE_SEMANA = [['06:00', '08:00'], ['14:00', '17:00'], ['22:00', '24:00']];
 const SABADO = [['06:00', '08:00'], ['11:00', '24:00']];
@@ -9,8 +9,13 @@ const CONFIG = {
   centro: 'BTBOX Training Center',
   zonaHoraria: 'Europe/Madrid',
   horario: { 1: ENTRE_SEMANA, 2: ENTRE_SEMANA, 3: ENTRE_SEMANA, 4: ENTRE_SEMANA, 5: ENTRE_SEMANA, 6: SABADO, 7: DOMINGO },
-  precios: { profesionalHora: 11, clienteHora: 5 },
-  limites: { maxProfesionales: 1, maxClientes: 6, maxHoras: 3, diasMaximos: 60, franjaMin: 30, duracionMinimaMin: 30 },
+  tarifas: [
+    { hasta: 1, nombre: '1 persona', precios: { 60: 10, 90: 15, 120: 18 } },
+    { hasta: 2, nombre: 'Pareja (2 personas)', precios: { 60: 14, 90: 20, 120: 26 } },
+    { hasta: 4, nombre: 'Hasta 4 personas', precios: { 60: 18, 90: 26, 120: 34 } },
+    { hasta: 6, nombre: 'Hasta 6 personas', precios: { 60: 24, 90: 34, 120: 44 } },
+  ],
+  limites: { maxPersonas: 6, duraciones: [60, 90, 120], diasMaximos: 60, franjaMin: 30 },
 };
 const CLAVE = 'btbox-demo-reserva';
 const FRANJA = CONFIG.limites.franjaMin;
@@ -71,16 +76,14 @@ export async function post(body) {
     return { ok: true, reembolsado: true, importe: r?.precio || 0 };
   }
   const id = `DEMO-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-  const p = CONFIG.precios;
-  const precio = body.horas * (p.profesionalHora * body.profesionales + p.clienteHora * body.clientes);
+  const precio = calcularPrecio(CONFIG, body.horas * 60, body.personas);
   const reserva = {
     id,
     fecha: body.fecha,
     hora: body.hora,
     horaFin: sumarMin(body.hora, body.horas * 60),
     horas: body.horas,
-    profesionales: body.profesionales,
-    clientes: body.clientes,
+    personas: body.personas,
     precio,
   };
   sessionStorage.setItem(CLAVE, JSON.stringify(reserva));

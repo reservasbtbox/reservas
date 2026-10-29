@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { MODO_DEMO } from '../config.js';
-import { addDays, aMinutos, calcularPrecio, duracion, esUrlSegura, euros, fechaLarga, iso, lunes, plural, sumarMin, textoHorario } from '../utils.js';
+import { addDays, aMinutos, calcularPrecio, duracion, esUrlSegura, euros, fechaLarga, iso, lunes, sumarMin, tarifaPara, textoHorario } from '../utils.js';
 import Calendario from './Calendario.jsx';
 import Contador from './Contador.jsx';
 
-const LIMITES_POR_DEFECTO = { maxProfesionales: 1, maxClientes: 10, maxHoras: 1, diasMaximos: 60, franjaMin: 30, duracionMinimaMin: 30 };
+const LIMITES_POR_DEFECTO = { maxPersonas: 6, duraciones: [60], diasMaximos: 60, franjaMin: 30 };
 const DATOS_VACIOS = { nombre: '', profesion: '', email: '', telefono: '', website: '' };
 const PASOS = ['Elige el horario', 'Reserva tu espacio', 'Paga online', 'Entra y entrena'];
 
@@ -35,9 +35,8 @@ export default function Reserva({ pagoCancelado }) {
   const [diaMovil, setDiaMovil] = useState(0);
 
   const [seleccion, setSeleccion] = useState(null); // { fecha, hora, max } (max en bloques)
-  const [bloques, setBloques] = useState(1);
-  const [profesionales, setProfesionales] = useState(1);
-  const [clientes, setClientes] = useState(0);
+  const [bloques, setBloques] = useState(0);
+  const [personas, setPersonas] = useState(1);
   const [datos, setDatos] = useState(DATOS_VACIOS);
   const [aviso, setAviso] = useState('');
   const [error, setError] = useState('');
@@ -49,8 +48,12 @@ export default function Reserva({ pagoCancelado }) {
 
   const limites = { ...LIMITES_POR_DEFECTO, ...config?.limites };
   const franja = limites.franjaMin;
-  const minBloques = Math.max(1, Math.ceil(limites.duracionMinimaMin / franja));
-  const maxBloques = Math.floor((limites.maxHoras * 60) / franja);
+  // Duraciones reservables (las columnas de la tabla de tarifas), en bloques de calendario.
+  const opciones = [...limites.duraciones].sort((a, b) => a - b).map((min) => min / franja);
+  const minBloques = opciones[0];
+  const maxBloques = opciones[opciones.length - 1];
+  // La duración más larga permitida que cabe en 'max' bloques libres.
+  const mayorQueCabe = (max) => opciones.filter((n) => n <= max).pop() || 0;
   const minutos = bloques * franja;
   const horas = minutos / 60;
   const inicio = addDays(lunes(hoy), semana * 7);
@@ -103,16 +106,17 @@ export default function Reserva({ pagoCancelado }) {
       setAviso('La hora que habías elegido ya no está disponible. Elige otra en el calendario.');
     } else if (max !== seleccion.max) {
       setSeleccion({ ...seleccion, max });
-      setBloques((b) => Math.min(b, max));
+      if (bloques > max) setBloques(mayorQueCabe(max));
     }
   }, [dias, seleccion, franja, minBloques, maxBloques]);
 
   function elegir(dia, hora) {
     setAviso('');
     setError('');
-    // Pulsar la media hora justo después de la selección la amplía (si se puede).
-    if (seleccion && dia.fecha === seleccion.fecha && hora === sumarMin(seleccion.hora, minutos) && bloques < seleccion.max) {
-      setBloques(bloques + 1);
+    // Pulsar la media hora justo después de la selección la amplía a la siguiente duración (si cabe).
+    const siguiente = opciones.find((n) => n > bloques);
+    if (seleccion && dia.fecha === seleccion.fecha && hora === sumarMin(seleccion.hora, minutos) && siguiente && siguiente <= seleccion.max) {
+      setBloques(siguiente);
       return;
     }
     const max = bloquesSeguidos(dia, hora, franja, maxBloques);
@@ -133,8 +137,8 @@ export default function Reserva({ pagoCancelado }) {
   };
 
   const set = (k) => (e) => setDatos((d) => ({ ...d, [k]: e.target.value }));
-  const precio = calcularPrecio(config, horas, profesionales, clientes);
-  const p = config?.precios;
+  const precio = calcularPrecio(config, minutos, personas);
+  const tarifa = tarifaPara(config, personas);
 
   function fallo(mensaje) {
     setError(mensaje);
@@ -158,8 +162,7 @@ export default function Reserva({ pagoCancelado }) {
         fecha: seleccion.fecha,
         hora: seleccion.hora,
         horas,
-        profesionales,
-        clientes,
+        personas,
         nombre: datos.nombre.trim(),
         profesion: datos.profesion.trim(),
         email: datos.email.trim(),
@@ -240,33 +243,34 @@ export default function Reserva({ pagoCancelado }) {
           </div>
           {aviso && <p className="aviso mb-4 text-sm" role="status">{aviso}</p>}
 
-          {seleccion && maxBloques > minBloques && (
+          {seleccion && opciones.length > 1 && (
             <fieldset className="mb-5">
               <legend className="text-sm font-semibold mb-2">Duración</legend>
               <div className="flex flex-wrap gap-2">
-                {Array.from({ length: maxBloques - minBloques + 1 }, (_, i) => minBloques + i).map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    className={`opcion ${bloques === n ? 'activa' : ''}`}
-                    aria-pressed={bloques === n}
-                    disabled={n > seleccion.max}
-                    title={n > seleccion.max ? 'Las horas siguientes no están libres' : undefined}
-                    onClick={() => setBloques(n)}
-                  >
-                    {duracion(n * franja)}
-                  </button>
-                ))}
+                {opciones.map((n) => {
+                  const precioOpcion = calcularPrecio(config, n * franja, personas);
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`opcion ${bloques === n ? 'activa' : ''}`}
+                      aria-pressed={bloques === n}
+                      disabled={n > seleccion.max}
+                      title={n > seleccion.max ? 'Las horas siguientes no están libres' : undefined}
+                      onClick={() => setBloques(n)}
+                    >
+                      {duracion(n * franja)}
+                      {precioOpcion != null && <span className="block text-xs opacity-80">{euros(precioOpcion)}</span>}
+                    </button>
+                  );
+                })}
               </div>
             </fieldset>
           )}
 
           <form className="space-y-4" onSubmit={enviar}>
             <div className="rounded-xl border border-[#24364a] p-4 space-y-3">
-              {limites.maxProfesionales > 1 && (
-                <Contador id="c-prof" etiqueta="Profesionales" valor={profesionales} min={1} max={limites.maxProfesionales} onChange={setProfesionales} />
-              )}
-              <Contador id="c-cli" etiqueta="Clientes que vienen contigo" valor={clientes} min={0} max={limites.maxClientes} onChange={setClientes} />
+              <Contador id="c-personas" etiqueta="Personas (contándote a ti)" valor={personas} min={1} max={limites.maxPersonas} onChange={setPersonas} />
             </div>
 
             <Campo id="nombre" etiqueta="Nombre y apellidos" autoComplete="name" maxLength={100} value={datos.nombre} onChange={set('nombre')} />
@@ -281,16 +285,8 @@ export default function Reserva({ pagoCancelado }) {
             </div>
 
             <div className="rounded-xl border border-[#2a5f8f] banner p-4">
-              <p className="font-bold text-[#cdeaff]">
-                {plural(profesionales, 'profesional', 'profesionales')} + {plural(clientes, 'cliente', 'clientes')}
-              </p>
-              {p && (
-                <ul className="text-[#adc8dd] text-sm mt-2 space-y-0.5">
-                  <li>{plural(profesionales, 'profesional', 'profesionales')} × {euros(p.profesionalHora)}/h</li>
-                  {clientes > 0 && <li>{plural(clientes, 'cliente', 'clientes')} × {euros(p.clienteHora)}/h</li>}
-                  <li>× {duracion(minutos)}</li>
-                </ul>
-              )}
+              <p className="font-bold text-[#cdeaff]">{tarifa ? tarifa.nombre : '—'}</p>
+              <p className="text-[#adc8dd] text-sm mt-1">{seleccion ? duracion(minutos) : 'Elige una hora para ver el precio'}</p>
               <p className="font-bold text-lg mt-3 flex justify-between gap-3">
                 <span>Total</span>
                 <span>{precio == null ? '—' : euros(precio)}</span>

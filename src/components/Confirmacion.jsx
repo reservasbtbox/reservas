@@ -11,7 +11,7 @@ export function Resumen({ reserva }) {
     ['Código de reserva', reserva.id],
     ['Fecha', reserva.fechaTexto || fechaLarga(reserva.fecha)],
     ['Horario', `${reserva.hora} – ${reserva.horaFin} (${duracion(reserva.horas * 60)})`],
-    ['Personas', `${plural(reserva.profesionales, 'profesional', 'profesionales')} + ${plural(reserva.clientes, 'cliente', 'clientes')}`],
+    ['Personas', plural(reserva.personas, 'persona', 'personas')],
     ['Importe', euros(reserva.precio)],
   ];
   return (
