@@ -1,5 +1,5 @@
 // ⬇️ Pega aquí la URL de tu aplicación web de Google Apps Script (termina en /exec).
-export const API_URL = 'https://script.google.com/macros/s/XXXX/exec';
+export const API_URL = 'https://script.google.com/macros/s/AKfycbwlYS-NRJBLd7d--P4crfc3g6QK4k2HIbXIThiqYB9LjjnzIhPygyjNvrDK3uoR1efNaA/exec';
 
 const CONECTADA = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(API_URL) && !API_URL.includes('XXXX');
 
