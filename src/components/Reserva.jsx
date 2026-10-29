@@ -6,7 +6,7 @@ import Calendario from './Calendario.jsx';
 import Contador from './Contador.jsx';
 
 const LIMITES_POR_DEFECTO = { maxPersonas: 6, duraciones: [60], diasMaximos: 60, franjaMin: 30 };
-const DATOS_VACIOS = { nombre: '', profesion: '', email: '', telefono: '', website: '' };
+const DATOS_VACIOS = { nombre: '', email: '', telefono: '', website: '' };
 const PASOS = ['Elige el horario', 'Reserva tu espacio', 'Paga online', 'Entra y entrena'];
 
 // Cuántos bloques seguidos hay libres en un día a partir de una hora (hasta el límite).
@@ -32,7 +32,7 @@ export default function Reserva({ pagoCancelado }) {
   const [dias, setDias] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState('');
-  const [diaMovil, setDiaMovil] = useState(0);
+  const [diaActivo, setDiaActivo] = useState(0);
 
   const [seleccion, setSeleccion] = useState(null); // { fecha, hora, max } (max en bloques)
   const [bloques, setBloques] = useState(0);
@@ -43,6 +43,7 @@ export default function Reserva({ pagoCancelado }) {
   const [enviando, setEnviando] = useState(false);
 
   const calendarioRef = useRef(null);
+  const panelRef = useRef(null);
   const errorRef = useRef(null);
   const peticion = useRef(0);
 
@@ -73,10 +74,9 @@ export default function Reserva({ pagoCancelado }) {
       const r = await api.disponibilidad(desde, 7);
       if (n !== peticion.current) return;
       setDias(r.dias);
-      // En móvil se abre el día de hoy si está en la semana; si no, el primero con horas libres.
-      const hoyIdx = r.dias.findIndex((d) => d.fecha === iso(new Date()));
+      // Se abre el primer día con horas libres (hoy, si le quedan); si no hay ninguno, el primero de la semana.
       const libreIdx = r.dias.findIndex((d) => d.slots.some((s) => s.estado === 'disponible'));
-      setDiaMovil(hoyIdx >= 0 ? hoyIdx : Math.max(libreIdx, 0));
+      setDiaActivo(Math.max(libreIdx, 0));
     } catch (e) {
       if (n === peticion.current) setErrorCarga(e.message);
     } finally {
@@ -164,7 +164,6 @@ export default function Reserva({ pagoCancelado }) {
         horas,
         personas,
         nombre: datos.nombre.trim(),
-        profesion: datos.profesion.trim(),
         email: datos.email.trim(),
         telefono,
         website: datos.website,
@@ -181,13 +180,11 @@ export default function Reserva({ pagoCancelado }) {
 
   return (
     <>
-      <section className="rounded-2xl border border-[#2a5f8f] banner px-6 py-7 sm:px-10 sm:py-9 mb-6 text-center" aria-label="Cómo funciona">
-        <h1 className="font-bold leading-tight text-[26px] sm:text-[32px] text-[#cdeaff]">
-          Selecciona hora, selecciona miembros.
-          <br />
-          Paga y entrena.
+      <section className="rounded-2xl border border-[#2a5f8f] banner px-4 py-5 sm:px-8 sm:py-6 mb-5 text-center" aria-label="Cómo funciona">
+        <h1 className="font-bold leading-tight text-[26px] sm:text-[34px] text-[#cdeaff]">
+          Elige hora y personas. Paga y entrena.
         </h1>
-        <ol className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-left">
+        <ol className="mt-4 hidden sm:grid grid-cols-4 gap-3 text-left">
           {PASOS.map((paso, i) => (
             <li key={paso} className="paso">
               <span className="eyebrow text-[#5fc4f0] text-xs">0{i + 1}</span>
@@ -204,7 +201,7 @@ export default function Reserva({ pagoCancelado }) {
         </p>
       )}
 
-      <div className="grid lg:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)] gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)] gap-6 items-start">
         <div ref={calendarioRef} className="scroll-mt-4 min-w-0">
           <Calendario
             dias={dias}
@@ -218,15 +215,15 @@ export default function Reserva({ pagoCancelado }) {
             siguienteDesactivado={siguienteDesactivado}
             enSeleccion={enSeleccion}
             onElegir={elegir}
-            diaMovil={diaMovil}
-            setDiaMovil={setDiaMovil}
+            diaActivo={diaActivo}
+            setDiaActivo={setDiaActivo}
             onReintentar={cargar}
           />
           {config?.horario && <p className="mt-3 text-[#8fa4ba] text-sm">Horario: {textoHorario(config.horario)}</p>}
         </div>
 
-        <aside className="glass rounded-2xl p-5 sm:p-7 lg:sticky lg:top-4" aria-labelledby="titulo-datos">
-          <h2 id="titulo-datos" className="font-bold text-xl sm:text-2xl mb-4">2. Completa tu reserva</h2>
+        <aside ref={panelRef} className="glass rounded-2xl p-5 sm:p-6 scroll-mt-4" aria-labelledby="titulo-datos">
+          <h2 id="titulo-datos" className="font-bold text-2xl sm:text-3xl mb-4">2. Completa tu reserva</h2>
 
           <div className="rounded-xl bg-[#0a2238] border border-[#24557d] px-4 py-3 mb-4" aria-live="polite">
             {seleccion ? (
@@ -274,7 +271,6 @@ export default function Reserva({ pagoCancelado }) {
             </div>
 
             <Campo id="nombre" etiqueta="Nombre y apellidos" autoComplete="name" maxLength={100} value={datos.nombre} onChange={set('nombre')} />
-            <Campo id="profesion" etiqueta="Profesión" placeholder="Ej.: entrenador personal" maxLength={100} value={datos.profesion} onChange={set('profesion')} />
             <Campo id="email" etiqueta="Correo electrónico" type="email" autoComplete="email" maxLength={160} value={datos.email} onChange={set('email')} />
             <Campo id="telefono" etiqueta="Teléfono" type="tel" autoComplete="tel" maxLength={30} value={datos.telefono} onChange={set('telefono')} />
 
@@ -308,6 +304,26 @@ export default function Reserva({ pagoCancelado }) {
           </form>
         </aside>
       </div>
+
+      {/* Móvil y tableta: con una hora elegida, barra fija abajo con el resumen y acceso directo al formulario. */}
+      {seleccion && (
+        <>
+          <div className="h-20 lg:hidden" aria-hidden="true" />
+          <div className="barra-movil lg:hidden">
+            <div className="min-w-0">
+              <p className="font-semibold text-sm truncate first-letter:uppercase">
+                {fechaLarga(seleccion.fecha)} · {seleccion.hora}
+              </p>
+              <p className="text-[#adc8dd] text-sm">
+                {duracion(minutos)} · {precio == null ? '—' : euros(precio)}
+              </p>
+            </div>
+            <button type="button" className="boton px-5 py-3 shrink-0" onClick={() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+              Continuar
+            </button>
+          </div>
+        </>
+      )}
     </>
   );
 }
