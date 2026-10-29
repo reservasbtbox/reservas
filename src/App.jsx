@@ -2,6 +2,7 @@ import { useState } from 'react';
 import logo from './assets/logo.png';
 import Cancelar from './components/Cancelar.jsx';
 import Confirmacion from './components/Confirmacion.jsx';
+import Proximamente from './components/Proximamente.jsx';
 import Reserva from './components/Reserva.jsx';
 import { MODO_DEMO, PROXIMAMENTE } from './config.js';
 
@@ -78,10 +79,7 @@ export default function App() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
         {PROXIMAMENTE ? (
-          <section className="glass rounded-2xl max-w-xl mx-auto p-6 sm:p-9 text-center">
-            <h1 className="font-bold text-2xl sm:text-3xl">Reservas disponibles próximamente</h1>
-            <p className="text-[#c7d6e5] mt-3">Estamos preparando las reservas online. Vuelve en unos días.</p>
-          </section>
+          <Proximamente />
         ) : vista === 'cancelar' ? (
           <Cancelar reservaId={retorno.cancelar} token={retorno.token} onNueva={nuevaReserva} />
         ) : vista === 'confirmacion' ? (

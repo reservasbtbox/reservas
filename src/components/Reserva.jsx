@@ -4,6 +4,7 @@ import { MODO_DEMO } from '../config.js';
 import { addDays, aMinutos, calcularPrecio, duracion, esUrlSegura, euros, fechaLarga, iso, lunes, sumarMin, tarifaPara, textoHorario } from '../utils.js';
 import Calendario from './Calendario.jsx';
 import Contador from './Contador.jsx';
+import Proximamente from './Proximamente.jsx';
 
 const LIMITES_POR_DEFECTO = { maxPersonas: 6, duraciones: [60], diasMaximos: 60, franjaMin: 30 };
 const DATOS_VACIOS = { nombre: '', email: '', telefono: '', website: '' };
@@ -177,6 +178,9 @@ export default function Reserva({ pagoCancelado }) {
       cargar();
     }
   }
+
+  // El script cierra las reservas mientras Stripe está en modo pruebas.
+  if (config?.reservasAbiertas === false) return <Proximamente />;
 
   return (
     <>
