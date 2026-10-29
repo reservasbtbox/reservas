@@ -1,25 +1,32 @@
 // Datos inventados para ver la página funcionando antes de conectar el Apps Script.
 // No se usa en cuanto API_URL tiene la URL real.
-import { addDays, fromISO, horaMas, iso, pad } from './utils.js';
+import { addDays, aMinutos, fromISO, iso, sumarMin } from './utils.js';
 
+const ENTRE_SEMANA = [['06:00', '08:00'], ['14:00', '17:00'], ['22:00', '24:00']];
+const SABADO = [['06:00', '08:00'], ['11:00', '24:00']];
+const DOMINGO = [['06:00', '08:00'], ['11:00', '13:00'], ['14:00', '24:00']];
 const CONFIG = {
   centro: 'BTBOX Training Center',
   zonaHoraria: 'Europe/Madrid',
-  horario: 'L–V 08:00–21:00 · Sáb 09:00–14:00 · Dom cerrado',
-  precios: { profesionalHora: 20, clienteHora: 5 },
-  limites: { maxProfesionales: 1, maxClientes: 6, maxHoras: 3, diasMaximos: 60 },
+  horario: { 1: ENTRE_SEMANA, 2: ENTRE_SEMANA, 3: ENTRE_SEMANA, 4: ENTRE_SEMANA, 5: ENTRE_SEMANA, 6: SABADO, 7: DOMINGO },
+  precios: { profesionalHora: 11, clienteHora: 5 },
+  limites: { maxProfesionales: 1, maxClientes: 6, maxHoras: 3, diasMaximos: 60, franjaMin: 30, duracionMinimaMin: 30 },
 };
 const CLAVE = 'btbox-demo-reserva';
+const FRANJA = CONFIG.limites.franjaMin;
 
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function estadoSlot(fecha, h) {
+// Inicios de media hora abiertos algún día de la semana (como hace el Apps Script).
+const INICIOS = [...new Set(Object.values(CONFIG.horario).flatMap((franjas) => franjas.flatMap(([a, b]) =>
+  Array.from({ length: (aMinutos(b) - aMinutos(a)) / FRANJA }, (_, k) => aMinutos(a) + k * FRANJA))))].sort((x, y) => x - y);
+
+function estadoSlot(fecha, m) {
   const d = fromISO(fecha);
-  const dia = (d.getDay() + 6) % 7;
-  const abierto = dia < 5 ? h >= 8 && h < 21 : dia === 5 ? h >= 9 && h < 14 : false;
-  if (!abierto) return 'cerrada';
-  if (new Date(d.getFullYear(), d.getMonth(), d.getDate(), h) <= new Date()) return 'pasada';
-  return (d.getDate() * 7 + h * 3) % 11 === 0 ? 'ocupada' : 'disponible';
+  const franjas = CONFIG.horario[((d.getDay() + 6) % 7) + 1] || [];
+  if (!franjas.some(([a, b]) => m >= aMinutos(a) && m + FRANJA <= aMinutos(b))) return 'cerrada';
+  if (new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, m) <= new Date()) return 'pasada';
+  return (d.getDate() * 7 + m / FRANJA * 3) % 11 === 0 ? 'ocupada' : 'disponible';
 }
 
 export async function get(params) {
@@ -33,7 +40,7 @@ export async function get(params) {
       return {
         fecha,
         diaSemana: ((fromISO(fecha).getDay() + 6) % 7) + 1,
-        slots: Array.from({ length: 13 }, (_, k) => ({ hora: `${pad(8 + k)}:00`, estado: estadoSlot(fecha, 8 + k) })),
+        slots: INICIOS.map((m) => ({ hora: sumarMin('00:00', m), estado: estadoSlot(fecha, m) })),
       };
     });
     return { ok: true, dias };
@@ -61,7 +68,7 @@ export async function post(body) {
     id,
     fecha: body.fecha,
     hora: body.hora,
-    horaFin: horaMas(body.hora, body.horas),
+    horaFin: sumarMin(body.hora, body.horas * 60),
     horas: body.horas,
     profesionales: body.profesionales,
     clientes: body.clientes,

@@ -1,30 +1,46 @@
 import { useState } from 'react';
 import Confirmacion from './components/Confirmacion.jsx';
 import Reserva from './components/Reserva.jsx';
-import { MODO_DEMO } from './config.js';
+import { MODO_DEMO, PROXIMAMENTE } from './config.js';
 
 // Stripe devuelve aquí con ?pago=ok&reserva=…&session_id=…  o  ?pago=cancelado&reserva=…
-const params = new URLSearchParams(window.location.search);
-const retorno = {
-  pago: params.get('pago'),
-  reserva: params.get('reserva'),
-  sessionId: params.get('session_id'),
-};
+// La reserva y el session_id permiten ver el PIN: se quitan de la URL al momento para que no queden
+// en el historial ni en enlaces compartidos, y se guardan solo en esta pestaña por si el cliente recarga.
+const CLAVE_RETORNO = 'btbox-retorno';
 
-function limpiarUrl() {
-  window.history.replaceState(null, '', window.location.pathname);
+function leerRetorno() {
+  const params = new URLSearchParams(window.location.search);
+  const pago = params.get('pago');
+  if (pago) {
+    window.history.replaceState(null, '', window.location.pathname);
+    const retorno = { pago, reserva: params.get('reserva'), sessionId: params.get('session_id') };
+    if (pago === 'ok') guardarRetorno(retorno);
+    return retorno;
+  }
+  try {
+    return JSON.parse(sessionStorage.getItem(CLAVE_RETORNO)) || {};
+  } catch {
+    return {};
+  }
 }
+
+function guardarRetorno(retorno) {
+  try {
+    if (retorno) sessionStorage.setItem(CLAVE_RETORNO, JSON.stringify(retorno));
+    else sessionStorage.removeItem(CLAVE_RETORNO);
+  } catch {
+    // Sin almacenamiento: si recarga, el PIN le llega igualmente por email.
+  }
+}
+
+const retorno = leerRetorno();
 
 export default function App() {
   const [vista, setVista] = useState(retorno.pago === 'ok' && retorno.reserva ? 'confirmacion' : 'reserva');
-  const [pagoCancelado] = useState(() => {
-    if (retorno.pago !== 'cancelado') return false;
-    limpiarUrl();
-    return true;
-  });
+  const pagoCancelado = retorno.pago === 'cancelado';
 
   function nuevaReserva() {
-    limpiarUrl();
+    guardarRetorno(null);
     setVista('reserva');
     window.scrollTo(0, 0);
   }
@@ -48,7 +64,12 @@ export default function App() {
       )}
 
       <main className="max-w-6xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
-        {vista === 'confirmacion' ? (
+        {PROXIMAMENTE ? (
+          <section className="glass rounded-2xl max-w-xl mx-auto p-6 sm:p-9 text-center">
+            <h1 className="font-bold text-2xl sm:text-3xl">Reservas disponibles próximamente</h1>
+            <p className="text-[#c7d6e5] mt-3">Estamos preparando las reservas online. Vuelve en unos días.</p>
+          </section>
+        ) : vista === 'confirmacion' ? (
           <Confirmacion reservaId={retorno.reserva} sessionId={retorno.sessionId} onNueva={nuevaReserva} />
         ) : (
           <Reserva pagoCancelado={pagoCancelado} />

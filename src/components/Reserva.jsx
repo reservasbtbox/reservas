@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
-import { addDays, calcularPrecio, euros, fechaLarga, fromISO, horaMas, iso, lunes, pad, plural } from '../utils.js';
+import { MODO_DEMO } from '../config.js';
+import { addDays, aMinutos, calcularPrecio, duracion, esUrlSegura, euros, fechaLarga, iso, lunes, plural, sumarMin, textoHorario } from '../utils.js';
 import Calendario from './Calendario.jsx';
 import Contador from './Contador.jsx';
 
-const LIMITES_POR_DEFECTO = { maxProfesionales: 1, maxClientes: 10, maxHoras: 1, diasMaximos: 60 };
+const LIMITES_POR_DEFECTO = { maxProfesionales: 1, maxClientes: 10, maxHoras: 1, diasMaximos: 60, franjaMin: 30, duracionMinimaMin: 30 };
 const DATOS_VACIOS = { nombre: '', profesion: '', email: '', telefono: '', website: '' };
 const PASOS = ['Elige el horario', 'Reserva tu espacio', 'Paga online', 'Entra y entrena'];
 
-// Cuántas horas seguidas hay libres en un día a partir de una hora (hasta el límite).
-function horasSeguidas(dia, hora, limite) {
-  const inicio = Number(hora.slice(0, 2));
+// Cuántos bloques seguidos hay libres en un día a partir de una hora (hasta el límite).
+function bloquesSeguidos(dia, hora, franja, limite) {
   let n = 0;
-  while (n < limite && dia.slots.find((s) => s.hora === `${pad(inicio + n)}:00`)?.estado === 'disponible') n++;
+  while (n < limite && dia.slots.find((s) => s.hora === sumarMin(hora, n * franja))?.estado === 'disponible') n++;
   return n;
 }
 
@@ -34,8 +34,8 @@ export default function Reserva({ pagoCancelado }) {
   const [errorCarga, setErrorCarga] = useState('');
   const [diaMovil, setDiaMovil] = useState(0);
 
-  const [seleccion, setSeleccion] = useState(null); // { fecha, hora, max }
-  const [horas, setHoras] = useState(1);
+  const [seleccion, setSeleccion] = useState(null); // { fecha, hora, max } (max en bloques)
+  const [bloques, setBloques] = useState(1);
   const [profesionales, setProfesionales] = useState(1);
   const [clientes, setClientes] = useState(0);
   const [datos, setDatos] = useState(DATOS_VACIOS);
@@ -48,6 +48,11 @@ export default function Reserva({ pagoCancelado }) {
   const peticion = useRef(0);
 
   const limites = { ...LIMITES_POR_DEFECTO, ...config?.limites };
+  const franja = limites.franjaMin;
+  const minBloques = Math.max(1, Math.ceil(limites.duracionMinimaMin / franja));
+  const maxBloques = Math.floor((limites.maxHoras * 60) / franja);
+  const minutos = bloques * franja;
+  const horas = minutos / 60;
   const inicio = addDays(lunes(hoy), semana * 7);
   const fin = addDays(inicio, 6);
   const desde = iso(inicio);
@@ -92,33 +97,39 @@ export default function Reserva({ pagoCancelado }) {
     if (!seleccion) return;
     const dia = dias.find((d) => d.fecha === seleccion.fecha);
     if (!dia) return;
-    const max = horasSeguidas(dia, seleccion.hora, limites.maxHoras);
-    if (max === 0) {
+    const max = bloquesSeguidos(dia, seleccion.hora, franja, maxBloques);
+    if (max < minBloques) {
       setSeleccion(null);
       setAviso('La hora que habías elegido ya no está disponible. Elige otra en el calendario.');
     } else if (max !== seleccion.max) {
       setSeleccion({ ...seleccion, max });
-      setHoras((h) => Math.min(h, max));
+      setBloques((b) => Math.min(b, max));
     }
-  }, [dias, seleccion, limites.maxHoras]);
+  }, [dias, seleccion, franja, minBloques, maxBloques]);
 
   function elegir(dia, hora) {
     setAviso('');
     setError('');
-    // Pulsar la hora justo después de la selección la amplía (si se puede).
-    if (seleccion && dia.fecha === seleccion.fecha && hora === horaMas(seleccion.hora, horas) && horas < seleccion.max) {
-      setHoras(horas + 1);
+    // Pulsar la media hora justo después de la selección la amplía (si se puede).
+    if (seleccion && dia.fecha === seleccion.fecha && hora === sumarMin(seleccion.hora, minutos) && bloques < seleccion.max) {
+      setBloques(bloques + 1);
       return;
     }
-    setSeleccion({ fecha: dia.fecha, hora, max: horasSeguidas(dia, hora, limites.maxHoras) });
-    setHoras(1);
+    const max = bloquesSeguidos(dia, hora, franja, maxBloques);
+    if (max < minBloques) {
+      setSeleccion(null);
+      setAviso(`Desde esa hora no quedan ${duracion(minBloques * franja)} libres seguidos. Elige otra.`);
+      return;
+    }
+    setSeleccion({ fecha: dia.fecha, hora, max });
+    setBloques(minBloques);
   }
 
   const enSeleccion = (fecha, hora) => {
     if (!seleccion || fecha !== seleccion.fecha) return false;
-    const h = Number(hora.slice(0, 2));
-    const h0 = Number(seleccion.hora.slice(0, 2));
-    return h >= h0 && h < h0 + horas;
+    const m = aMinutos(hora);
+    const m0 = aMinutos(seleccion.hora);
+    return m >= m0 && m < m0 + minutos;
   };
 
   const set = (k) => (e) => setDatos((d) => ({ ...d, [k]: e.target.value }));
@@ -155,6 +166,8 @@ export default function Reserva({ pagoCancelado }) {
         telefono,
         website: datos.website,
       });
+      // Solo se sale de la web hacia el pago de Stripe, nunca a otra dirección que devuelva el servidor.
+      if (!MODO_DEMO && !esUrlSegura(r.url, ['checkout.stripe.com'])) throw new Error('No se pudo iniciar el pago. Inténtalo de nuevo en unos minutos.');
       window.location.assign(r.url);
     } catch (err) {
       setEnviando(false);
@@ -206,7 +219,7 @@ export default function Reserva({ pagoCancelado }) {
             setDiaMovil={setDiaMovil}
             onReintentar={cargar}
           />
-          {config?.horario && <p className="mt-3 text-[#8fa4ba] text-sm">Horario: {config.horario}</p>}
+          {config?.horario && <p className="mt-3 text-[#8fa4ba] text-sm">Horario: {textoHorario(config.horario)}</p>}
         </div>
 
         <aside className="glass rounded-2xl p-5 sm:p-7 lg:sticky lg:top-4" aria-labelledby="titulo-datos">
@@ -218,7 +231,7 @@ export default function Reserva({ pagoCancelado }) {
                 <p className="text-xs eyebrow text-[#5fc4f0]">TU HORA</p>
                 <p className="font-bold text-[#e6f4ff] first-letter:uppercase">{fechaLarga(seleccion.fecha)}</p>
                 <p className="text-[#c7e7ff]">
-                  {seleccion.hora} – {horaMas(seleccion.hora, horas)} · {plural(horas, 'hora', 'horas')}
+                  {seleccion.hora} – {sumarMin(seleccion.hora, minutos)} · {duracion(minutos)}
                 </p>
               </>
             ) : (
@@ -227,21 +240,21 @@ export default function Reserva({ pagoCancelado }) {
           </div>
           {aviso && <p className="aviso mb-4 text-sm" role="status">{aviso}</p>}
 
-          {seleccion && limites.maxHoras > 1 && (
+          {seleccion && maxBloques > minBloques && (
             <fieldset className="mb-5">
               <legend className="text-sm font-semibold mb-2">Duración</legend>
               <div className="flex flex-wrap gap-2">
-                {Array.from({ length: limites.maxHoras }, (_, i) => i + 1).map((n) => (
+                {Array.from({ length: maxBloques - minBloques + 1 }, (_, i) => minBloques + i).map((n) => (
                   <button
                     key={n}
                     type="button"
-                    className={`opcion ${horas === n ? 'activa' : ''}`}
-                    aria-pressed={horas === n}
+                    className={`opcion ${bloques === n ? 'activa' : ''}`}
+                    aria-pressed={bloques === n}
                     disabled={n > seleccion.max}
                     title={n > seleccion.max ? 'Las horas siguientes no están libres' : undefined}
-                    onClick={() => setHoras(n)}
+                    onClick={() => setBloques(n)}
                   >
-                    {n} h
+                    {duracion(n * franja)}
                   </button>
                 ))}
               </div>
@@ -275,7 +288,7 @@ export default function Reserva({ pagoCancelado }) {
                 <ul className="text-[#adc8dd] text-sm mt-2 space-y-0.5">
                   <li>{plural(profesionales, 'profesional', 'profesionales')} × {euros(p.profesionalHora)}/h</li>
                   {clientes > 0 && <li>{plural(clientes, 'cliente', 'clientes')} × {euros(p.clienteHora)}/h</li>}
-                  <li>× {plural(horas, 'hora', 'horas')}</li>
+                  <li>× {duracion(minutos)}</li>
                 </ul>
               )}
               <p className="font-bold text-lg mt-3 flex justify-between gap-3">

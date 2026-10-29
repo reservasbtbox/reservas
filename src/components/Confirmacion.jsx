@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { euros, fechaLarga, plural } from '../utils.js';
+import { duracion, esUrlSegura, euros, fechaLarga, plural } from '../utils.js';
 
 const INTENTOS = 10;
 const ESPERA_MS = 3000;
@@ -10,7 +10,7 @@ function Resumen({ reserva }) {
   const filas = [
     ['Código de reserva', reserva.id],
     ['Fecha', reserva.fechaTexto || fechaLarga(reserva.fecha)],
-    ['Horario', `${reserva.hora} – ${reserva.horaFin} (${plural(reserva.horas, 'hora', 'horas')})`],
+    ['Horario', `${reserva.hora} – ${reserva.horaFin} (${duracion(reserva.horas * 60)})`],
     ['Personas', `${plural(reserva.profesionales, 'profesional', 'profesionales')} + ${plural(reserva.clientes, 'cliente', 'clientes')}`],
     ['Importe', euros(reserva.precio)],
   ];
@@ -96,7 +96,7 @@ export default function Confirmacion({ reservaId, sessionId, onNueva }) {
               <p className="text-sm text-[#adc8dd]">Tu código para abrir la puerta</p>
               <p className="pin mt-2" aria-label={`Código PIN: ${estado.acceso.pin.split('').join(' ')}`}>{estado.acceso.pin}</p>
               <p className="text-sm text-[#adc8dd] mt-3">Te lo hemos enviado también por email.</p>
-              {estado.acceso.magicLink && (
+              {esUrlSegura(estado.acceso.magicLink) && (
                 <a href={estado.acceso.magicLink} className="boton inline-block mt-4 px-5 py-3" target="_blank" rel="noopener noreferrer">
                   Abrir la puerta desde el móvil
                 </a>
