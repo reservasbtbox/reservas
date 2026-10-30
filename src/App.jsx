@@ -5,6 +5,7 @@ import Confirmacion from './components/Confirmacion.jsx';
 import Proximamente from './components/Proximamente.jsx';
 import Reserva from './components/Reserva.jsx';
 import { MODO_DEMO, PROXIMAMENTE } from './config.js';
+import { recordarPago } from './utils.js';
 
 // Stripe devuelve aquí con ?pago=ok&reserva=…&session_id=…  o  ?pago=cancelado&reserva=…
 // y el email de confirmación enlaza aquí con ?cancelar=…&token=…
@@ -25,7 +26,13 @@ function leerRetorno() {
   if (pago) {
     window.history.replaceState(null, '', window.location.pathname);
     const retorno = { pago, reserva: params.get('reserva'), sessionId: params.get('session_id') };
-    if (pago === 'ok') guardarRetorno(retorno);
+    if (pago === 'ok') {
+      guardarRetorno(retorno);
+      recordarPago(null);
+    } else if (retorno.reserva && params.get('token')) {
+      // Ha vuelto con "atrás" desde Stripe: Reserva.jsx libera la hora al cargar.
+      recordarPago({ id: retorno.reserva, token: params.get('token') });
+    }
     return retorno;
   }
   try {

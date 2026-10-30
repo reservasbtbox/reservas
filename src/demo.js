@@ -71,6 +71,7 @@ export async function get(params) {
 
 export async function post(body) {
   await espera(700);
+  if (body.action === 'abandonar') return { ok: true };
   if (body.action === 'cancelar') {
     const r = JSON.parse(sessionStorage.getItem(CLAVE) || 'null');
     return { ok: true, reembolsado: true, importe: r?.precio || 0 };

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { MODO_DEMO } from '../config.js';
-import { addDays, aMinutos, calcularPrecio, duracion, esUrlSegura, euros, fechaLarga, iso, lunes, sumarMin, tarifaPara, textoHorario } from '../utils.js';
+import {
+  addDays, aMinutos, calcularPrecio, duracion, esUrlSegura, euros, fechaLarga, iso, lunes, pagoPendiente, recordarPago, sumarMin, tarifaPara, textoHorario,
+} from '../utils.js';
 import Calendario from './Calendario.jsx';
 import Contador from './Contador.jsx';
 import Proximamente from './Proximamente.jsx';
@@ -89,12 +91,35 @@ export default function Reserva({ pagoCancelado }) {
     cargar();
   }, [cargar]);
 
-  // Al volver atrás desde Stripe el navegador puede restaurar la página con el botón bloqueado.
+  // Si el cliente vuelve de Stripe sin pagar (flecha "←" de Stripe o botón atrás), la hora se libera al momento
+  // en vez de quedar bloqueada hasta que caduque el pago.
+  const liberarPagoAbandonado = useCallback(async () => {
+    const pago = pagoPendiente();
+    if (!pago) return;
+    recordarPago(null);
+    try {
+      await api.abandonar(pago.id, pago.token);
+    } catch {
+      // Si falla, la hora se libera sola cuando caduca el pago.
+    }
+    cargar();
+  }, [cargar]);
+
+  // Solo al cargar la página (p. ej. al volver de Stripe con la flecha "←").
   useEffect(() => {
-    const alMostrar = (e) => e.persisted && setEnviando(false);
+    liberarPagoAbandonado();
+  }, []);
+
+  // Al volver atrás desde Stripe el navegador puede restaurar la página tal cual (con el botón bloqueado).
+  useEffect(() => {
+    const alMostrar = (e) => {
+      if (!e.persisted) return;
+      setEnviando(false);
+      liberarPagoAbandonado();
+    };
     window.addEventListener('pageshow', alMostrar);
     return () => window.removeEventListener('pageshow', alMostrar);
-  }, []);
+  }, [liberarPagoAbandonado]);
 
   // Si al recargar la disponibilidad la hora elegida ya no está libre, se avisa y se ajusta.
   useEffect(() => {
@@ -171,6 +196,7 @@ export default function Reserva({ pagoCancelado }) {
       });
       // Solo se sale de la web hacia el pago de Stripe, nunca a otra dirección que devuelva el servidor.
       if (!MODO_DEMO && !esUrlSegura(r.url, ['checkout.stripe.com'])) throw new Error('No se pudo iniciar el pago. Inténtalo de nuevo en unos minutos.');
+      if (r.token) recordarPago({ id: r.id, token: r.token });
       window.location.assign(r.url);
     } catch (err) {
       setEnviando(false);

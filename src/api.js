@@ -48,4 +48,5 @@ export const api = {
   reservar: (datos) => post({ action: 'reservar', ...datos }),
   cancelacion: (reserva, token) => get({ action: 'cancelacion', reserva, token }),
   cancelar: (reserva, token) => post({ action: 'cancelar', reserva, token }),
+  abandonar: (reserva, token) => post({ action: 'abandonar', reserva, token }),
 };

@@ -72,3 +72,21 @@ export function esUrlSegura(url, dominios) {
 }
 
 export const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+
+// Reserva a medio pagar en esta pestaña: si el cliente vuelve de Stripe sin pagar, la web la libera al momento.
+const CLAVE_PAGO = 'btbox-pago';
+export function recordarPago(pago) {
+  try {
+    if (pago) sessionStorage.setItem(CLAVE_PAGO, JSON.stringify(pago));
+    else sessionStorage.removeItem(CLAVE_PAGO);
+  } catch {
+    // Sin almacenamiento: la hora se libera sola cuando caduca el pago.
+  }
+}
+export function pagoPendiente() {
+  try {
+    return JSON.parse(sessionStorage.getItem(CLAVE_PAGO)) || null;
+  } catch {
+    return null;
+  }
+}
