@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import logo from './assets/logo.png';
 import Cancelar from './components/Cancelar.jsx';
 import Confirmacion from './components/Confirmacion.jsx';
+import Inicio from './components/Inicio.jsx';
 import Proximamente from './components/Proximamente.jsx';
 import Reserva from './components/Reserva.jsx';
 import { MODO_DEMO, PROXIMAMENTE } from './config.js';
@@ -53,28 +54,60 @@ function guardarRetorno(retorno) {
 
 const retorno = leerRetorno();
 
+// Dos páginas: inicio (#/) y reservas (#/reservar). Con # funcionan en GitHub Pages sin configurar nada.
+const paginaDeHash = () => (window.location.hash.startsWith('#/reservar') ? 'reservar' : 'inicio');
+
 export default function App() {
   const [vista, setVista] = useState(() => {
     if (retorno.cancelar) return 'cancelar';
     return retorno.pago === 'ok' && retorno.reserva ? 'confirmacion' : 'reserva';
   });
+  // Al volver de Stripe o desde el enlace de cancelación se abre directamente el bloque de reservas.
+  const [pagina, setPagina] = useState(() => (retorno.pago || retorno.cancelar ? 'reservar' : paginaDeHash()));
   const pagoCancelado = retorno.pago === 'cancelado';
+
+  useEffect(() => {
+    const alCambiar = () => {
+      const nueva = paginaDeHash();
+      // Salir al inicio cierra la confirmación o cancelación que se estuviera viendo.
+      if (nueva === 'inicio') {
+        guardarRetorno(null);
+        setVista('reserva');
+      }
+      setPagina(nueva);
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener('hashchange', alCambiar);
+    return () => window.removeEventListener('hashchange', alCambiar);
+  }, []);
 
   function nuevaReserva() {
     guardarRetorno(null);
     setVista('reserva');
+    setPagina('reservar');
+    if (window.location.hash !== '#/reservar') window.location.hash = '#/reservar';
     window.scrollTo(0, 0);
   }
 
   return (
     <div className="shell">
       <header className="border-b border-[#1d3047]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-4 flex items-center gap-3">
-          <img src={logo} alt="" className="w-10 h-10 rounded-xl bg-white object-contain p-1" />
-          <div>
-            <p className="font-bold tracking-wide leading-tight">BTBOX TRAINING CENTER</p>
-            <p className="eyebrow text-[11px] text-[#5fc4f0]">RESERVAS 24/7</p>
-          </div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-3 sm:py-4 flex items-center gap-3">
+          <a href="#/" className="flex items-center gap-3 min-w-0" aria-label="BTBOX Training Center, inicio">
+            <img src={logo} alt="" className="w-10 h-10 rounded-xl bg-white object-contain p-1 shrink-0" />
+            <span className="min-w-0">
+              <span className="block font-bold tracking-wide leading-tight truncate">BTBOX TRAINING CENTER</span>
+              <span className="block eyebrow text-[11px] text-[#5fc4f0]">RESERVAS 24/7</span>
+            </span>
+          </a>
+          <nav className="ml-auto flex items-center gap-1 sm:gap-2" aria-label="Principal">
+            <a href="#/" className={`nav-enlace hidden sm:inline-block ${pagina === 'inicio' ? 'activo' : ''}`} aria-current={pagina === 'inicio' ? 'page' : undefined}>
+              Inicio
+            </a>
+            <a href="#/reservar" className="boton px-4 py-2.5 text-sm" aria-current={pagina === 'reservar' ? 'page' : undefined}>
+              Reservar
+            </a>
+          </nav>
         </div>
       </header>
 
@@ -85,7 +118,9 @@ export default function App() {
       )}
 
       <main className="max-w-6xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
-        {PROXIMAMENTE ? (
+        {pagina === 'inicio' ? (
+          <Inicio />
+        ) : PROXIMAMENTE ? (
           <Proximamente />
         ) : vista === 'cancelar' ? (
           <Cancelar reservaId={retorno.cancelar} token={retorno.token} onNueva={nuevaReserva} />
