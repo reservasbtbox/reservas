@@ -10,8 +10,22 @@ import '@fontsource/montserrat/900.css';
 import App from './App.jsx';
 import './index.css';
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+const raiz = document.getElementById('root');
+
+// GitHub Pages no deja enviar la cabecera que impide mostrar la web dentro de otra página (clickjacking):
+// si está dentro de un marco, no se muestra y se ofrece abrirla normalmente.
+if (window.top !== window.self) {
+  const enlace = document.createElement('a');
+  enlace.href = window.location.href;
+  enlace.target = '_top';
+  enlace.rel = 'noopener';
+  enlace.textContent = 'Abrir BTBOX Reservas';
+  enlace.style.cssText = 'display:block;padding:24px;color:#7cc4ff;font:600 16px sans-serif';
+  raiz.append(enlace);
+} else {
+  createRoot(raiz).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+}
