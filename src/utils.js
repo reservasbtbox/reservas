@@ -46,12 +46,17 @@ export function calcularPrecio(config, minutos, personas) {
 }
 
 // El Apps Script devuelve el horario como { 1: [['06:00', '08:00'], ['14:00', '17:00']], … } (1 = lunes).
+// [['06:00', '08:00'], ['22:00', '24:00']] → "06:00–08:00, 22:00–00:00"; sin franjas → "cerrado".
+export function textoFranjas(franjas) {
+  if (!franjas?.length) return 'cerrado';
+  return franjas.map(([a, b]) => `${a}–${b === '24:00' ? '00:00' : b}`).join(', ');
+}
+
 export function textoHorario(horario) {
   if (!horario || typeof horario !== 'object') return '';
   const grupos = [];
   DIAS.forEach((nombre, i) => {
-    const franjas = horario[i + 1] || [];
-    const texto = franjas.length ? franjas.map(([a, b]) => `${a}–${b === '24:00' ? '00:00' : b}`).join(', ') : 'cerrado';
+    const texto = textoFranjas(horario[i + 1]);
     const ultimo = grupos[grupos.length - 1];
     if (ultimo && ultimo.texto === texto) ultimo.dias.push(nombre);
     else grupos.push({ texto, dias: [nombre] });

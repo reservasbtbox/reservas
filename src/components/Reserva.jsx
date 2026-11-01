@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { MODO_DEMO } from '../config.js';
 import {
-  addDays, aMinutos, calcularPrecio, duracion, esUrlSegura, euros, fechaLarga, iso, lunes, pagoPendiente, recordarPago, sumarMin, tarifaPara, textoHorario,
+  addDays, aMinutos, calcularPrecio, duracion, esUrlSegura, euros, fechaLarga, iso, lunes, pagoPendiente, recordarPago, sumarMin, tarifaPara, textoFranjas, textoHorario,
 } from '../utils.js';
 import Calendario from './Calendario.jsx';
 import Contador from './Contador.jsx';
@@ -250,6 +250,18 @@ export default function Reserva({ pagoCancelado }) {
             onReintentar={cargar}
           />
           {config?.horario && <p className="mt-3 text-[#8fa4ba] text-sm">Horario: {textoHorario(config.horario)}</p>}
+          {config?.diasEspeciales?.length > 0 && (
+            <div className="mt-3 text-sm">
+              <p className="text-[#c7e7ff] font-semibold">Días con horario especial</p>
+              <ul className="text-[#8fa4ba] mt-1 space-y-0.5">
+                {config.diasEspeciales.map(({ fecha, franjas }) => (
+                  <li key={fecha}>
+                    <span className="first-letter:uppercase inline-block">{fechaLarga(fecha)}</span>: {textoFranjas(franjas)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <aside ref={panelRef} className="glass rounded-2xl p-5 sm:p-6 scroll-mt-4" aria-labelledby="titulo-datos">

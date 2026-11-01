@@ -9,6 +9,7 @@ const CONFIG = {
   centro: 'BTBOX Training Center',
   zonaHoraria: 'Europe/Madrid',
   horario: { 1: ENTRE_SEMANA, 2: ENTRE_SEMANA, 3: ENTRE_SEMANA, 4: ENTRE_SEMANA, 5: ENTRE_SEMANA, 6: SABADO, 7: DOMINGO },
+  diasEspeciales: [],
   tarifas: [
     { hasta: 1, nombre: '1 persona', precios: { 60: 10, 90: 15, 120: 18 } },
     { hasta: 2, nombre: 'Pareja (2 personas)', precios: { 60: 14, 90: 20, 120: 26 } },
