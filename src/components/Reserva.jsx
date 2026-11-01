@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { MODO_DEMO } from '../config.js';
 import {
-  addDays, aMinutos, calcularPrecio, duracion, esUrlSegura, euros, fechaLarga, iso, lunes, pagoPendiente, recordarPago, sumarMin, tarifaPara, textoFranjas, textoHorario,
+  addDays, aMinutos, calcularPrecio, duracion, esUrlSegura, euros, fechaLarga, fromISO, iso, lunes, pagoPendiente, recordarPago, sumarMin, tarifaPara, textoFranjas, textoHorario,
 } from '../utils.js';
 import Calendario from './Calendario.jsx';
 import Contador from './Contador.jsx';
@@ -11,6 +11,16 @@ import Proximamente from './Proximamente.jsx';
 const LIMITES_POR_DEFECTO = { maxPersonas: 6, duraciones: [60], diasMaximos: 60, franjaMin: 30 };
 const DATOS_VACIOS = { nombre: '', email: '', telefono: '', website: '' };
 const PASOS = ['Elige el horario', 'Reserva tu espacio', 'Paga online', 'Entra y entrena'];
+
+// El día elegido se guarda en la dirección (#/reservar/AAAA-MM-DD): al recargar o compartir el enlace se abre ese día.
+const fechaDeHash = () => window.location.hash.match(/^#\/reservar\/(\d{4}-\d{2}-\d{2})$/)?.[1] || null;
+
+// Semana del calendario (0 = la actual) en la que cae esa fecha; las pasadas vuelven a la actual.
+function semanaDe(fecha) {
+  if (!fecha) return 0;
+  const semanas = Math.round((lunes(fromISO(fecha)) - lunes(new Date())) / (7 * 86400000));
+  return Math.min(Math.max(semanas, 0), 10);
+}
 
 // Cuántos bloques seguidos hay libres en un día a partir de una hora (hasta el límite).
 function bloquesSeguidos(dia, hora, franja, limite) {
@@ -31,7 +41,7 @@ function Campo({ id, etiqueta, ...props }) {
 export default function Reserva({ pagoCancelado }) {
   const hoy = useMemo(() => new Date(), []);
   const [config, setConfig] = useState(null);
-  const [semana, setSemana] = useState(0);
+  const [semana, setSemana] = useState(() => semanaDe(fechaDeHash()));
   const [dias, setDias] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState('');
@@ -49,6 +59,7 @@ export default function Reserva({ pagoCancelado }) {
   const panelRef = useRef(null);
   const errorRef = useRef(null);
   const peticion = useRef(0);
+  const fechaRecordada = useRef(fechaDeHash());
 
   const limites = { ...LIMITES_POR_DEFECTO, ...config?.limites };
   const franja = limites.franjaMin;
@@ -77,9 +88,11 @@ export default function Reserva({ pagoCancelado }) {
       const r = await api.disponibilidad(desde, 7);
       if (n !== peticion.current) return;
       setDias(r.dias);
-      // Se abre el primer día con horas libres (hoy, si le quedan); si no hay ninguno, el primero de la semana.
+      // Se mantiene el día que el cliente tenía elegido (también tras recargar); si no está en esta semana,
+      // se abre el primer día con horas libres, y si no hay ninguno, el primero de la semana.
+      const recordado = r.dias.findIndex((d) => d.fecha === fechaRecordada.current);
       const libreIdx = r.dias.findIndex((d) => d.slots.some((s) => s.estado === 'disponible'));
-      setDiaActivo(Math.max(libreIdx, 0));
+      setDiaActivo(recordado >= 0 ? recordado : Math.max(libreIdx, 0));
     } catch (e) {
       if (n === peticion.current) setErrorCarga(e.message);
     } finally {
@@ -90,6 +103,14 @@ export default function Reserva({ pagoCancelado }) {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // Apunta el día elegido en la dirección sin añadir pasos al historial (el botón atrás sigue saliendo de la página).
+  useEffect(() => {
+    const fecha = dias[diaActivo]?.fecha;
+    if (!fecha) return;
+    fechaRecordada.current = fecha;
+    if (window.location.hash !== `#/reservar/${fecha}`) window.history.replaceState(null, '', `#/reservar/${fecha}`);
+  }, [dias, diaActivo]);
 
   // Si el cliente vuelve de Stripe sin pagar (flecha "←" de Stripe o botón atrás), la hora se libera al momento
   // en vez de quedar bloqueada hasta que caduque el pago.

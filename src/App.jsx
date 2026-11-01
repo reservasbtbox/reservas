@@ -85,7 +85,7 @@ export default function App() {
     guardarRetorno(null);
     setVista('reserva');
     setPagina('reservar');
-    if (window.location.hash !== '#/reservar') window.location.hash = '#/reservar';
+    if (!window.location.hash.startsWith('#/reservar')) window.location.hash = '#/reservar';
     window.scrollTo(0, 0);
   }
 
