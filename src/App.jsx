@@ -3,6 +3,7 @@ import logo from './assets/logo.png';
 import Cancelar from './components/Cancelar.jsx';
 import Confirmacion from './components/Confirmacion.jsx';
 import Inicio from './components/Inicio.jsx';
+import Normas from './components/Normas.jsx';
 import Proximamente from './components/Proximamente.jsx';
 import Reserva from './components/Reserva.jsx';
 import { MODO_DEMO, PROXIMAMENTE } from './config.js';
@@ -54,8 +55,13 @@ function guardarRetorno(retorno) {
 
 const retorno = leerRetorno();
 
-// Dos páginas: inicio (#/) y reservas (#/reservar). Con # funcionan en GitHub Pages sin configurar nada.
-const paginaDeHash = () => (window.location.hash.startsWith('#/reservar') ? 'reservar' : 'inicio');
+// Páginas: inicio (#/), reservas (#/reservar) y normas de uso (#/normas). Con # funcionan en GitHub Pages sin configurar nada.
+const paginaDeHash = () => {
+  const h = window.location.hash;
+  if (h.startsWith('#/reservar')) return 'reservar';
+  if (h.startsWith('#/normas')) return 'normas';
+  return 'inicio';
+};
 
 export default function App() {
   const [vista, setVista] = useState(() => {
@@ -120,6 +126,8 @@ export default function App() {
       <main className="max-w-6xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
         {pagina === 'inicio' ? (
           <Inicio />
+        ) : pagina === 'normas' ? (
+          <Normas />
         ) : PROXIMAMENTE ? (
           <Proximamente />
         ) : vista === 'cancelar' ? (
@@ -132,7 +140,10 @@ export default function App() {
       </main>
 
       <footer className="max-w-6xl mx-auto px-4 sm:px-8 pb-8 text-[#7d93a9] text-xs">
-        <p>BTBOX Training Center · Acceso 24/7 con código PIN · Pago seguro con Stripe</p>
+        <p>
+          BTBOX Training Center · Acceso 24/7 con código PIN · Pago seguro con Stripe ·{' '}
+          <a href="#/normas" className="underline hover:text-white">Normas de uso</a>
+        </p>
       </footer>
     </div>
   );

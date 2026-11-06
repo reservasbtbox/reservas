@@ -9,7 +9,7 @@ import Contador from './Contador.jsx';
 import Proximamente from './Proximamente.jsx';
 
 const LIMITES_POR_DEFECTO = { maxPersonas: 6, duraciones: [60], diasMaximos: 60, franjaMin: 30 };
-const DATOS_VACIOS = { nombre: '', email: '', telefono: '', website: '' };
+const DATOS_VACIOS = { nombre: '', email: '', telefono: '', website: '', aceptaNormas: false };
 const PASOS = ['Elige el horario', 'Reserva tu espacio', 'Paga online', 'Entra y entrena'];
 
 // El día elegido se guarda en la dirección (#/reservar/AAAA-MM-DD): al recargar o compartir el enlace se abre ese día.
@@ -214,6 +214,7 @@ export default function Reserva({ pagoCancelado }) {
         email: datos.email.trim(),
         telefono,
         website: datos.website,
+        aceptaNormas: datos.aceptaNormas,
       });
       // Solo se sale de la web hacia el pago de Stripe, nunca a otra dirección que devuelva el servidor.
       if (!MODO_DEMO && !esUrlSegura(r.url, ['checkout.stripe.com'])) throw new Error('No se pudo iniciar el pago. Inténtalo de nuevo en unos minutos.');
@@ -336,6 +337,23 @@ export default function Reserva({ pagoCancelado }) {
             <Campo id="nombre" etiqueta="Nombre y apellidos" autoComplete="name" maxLength={100} value={datos.nombre} onChange={set('nombre')} />
             <Campo id="email" etiqueta="Correo electrónico" type="email" autoComplete="email" maxLength={160} value={datos.email} onChange={set('email')} />
             <Campo id="telefono" etiqueta="Teléfono" type="tel" autoComplete="tel" maxLength={30} value={datos.telefono} onChange={set('telefono')} />
+
+            <label className="flex items-start gap-3 text-sm text-[#d9e6f2] cursor-pointer">
+              <input
+                type="checkbox"
+                required
+                className="mt-0.5 w-5 h-5 shrink-0 accent-[#1e90ff]"
+                checked={datos.aceptaNormas}
+                onChange={(e) => setDatos((d) => ({ ...d, aceptaNormas: e.target.checked }))}
+              />
+              <span>
+                He leído y acepto las{' '}
+                <a href="#/normas" target="_blank" rel="noopener" className="underline font-semibold text-[#7cc4ff]">
+                  normas de uso del centro
+                </a>
+                . Te las enviaremos también con la confirmación.
+              </span>
+            </label>
 
             {/* Campo trampa anti-spam: las personas no lo ven; si llega relleno, el servidor lo descarta. */}
             <div className="trampa" aria-hidden="true">

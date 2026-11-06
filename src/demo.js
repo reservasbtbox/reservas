@@ -62,6 +62,9 @@ export async function get(params) {
       acceso: { pin: '482913', magicLink: '' },
     };
   }
+  if (params.action === 'normas') {
+    return { ok: true, normas: { version: 'demo', intro: ['Normas de ejemplo (modo demostración).'], secciones: [{ titulo: '1. Reservas', puntos: ['Respeta tu horario.'] }], cierre: { titulo: 'Gracias', parrafos: [], firma: 'BTBOX' } } };
+  }
   if (params.action === 'cancelacion') {
     const r = JSON.parse(sessionStorage.getItem(CLAVE) || 'null');
     if (!r || r.id !== params.reserva) return { ok: false, error: 'Enlace de cancelación no válido.' };
